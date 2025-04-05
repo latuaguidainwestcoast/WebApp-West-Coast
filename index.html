@@ -1,274 +1,284 @@
 <!DOCTYPE html>
-<html>
+<html lang="it">
 <head>
-    <meta charset="UTF-8">
-    <title>La tua guida in West Coast</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#ffffff">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icon-512.png">
+  <title>La tua guida in West Coast</title>
 
-    <!-- Google Maps -->
-    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBrEuTdZeoXatovvj9b_306cuXTwgwzOVA&callback=initMap" async defer></script>
+  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBrEuTdZeoXatovvj9b_306cuXTwgwzOVA&callback=initMap" async defer></script>
+  <style>
+    html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family: sans-serif; }
+    #map { height: 100vh; width: 100vw; position: absolute; top: 0; left: 0; }
 
-    <!-- Web App Manifest + Icone -->
-    <link rel="manifest" href="manifest.json">
-    <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
-    <link rel="apple-touch-icon" href="icon-512.png">
+    #filtersContainer, #locateContainer {
+      background: rgba(255, 255, 255, 0.9);
+      border-radius: 10px;
+      padding: 10px;
+      z-index: 1001;
+    }
 
-    <!-- Meta per PWA -->
-    <meta name="theme-color" content="#ffffff">
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    #filtersContainer {
+      position: absolute;
+      top: 60px; right: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
 
-    <!-- CSS -->
-    <style>
-        html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; }
-        #map { height: 100vh; width: 100vw; position: absolute; top: 0; left: 0; }
-        #filtersContainer {
-            position: absolute;
-            top: 50px; right: 10px;
-            background: rgba(255, 255, 255, 0.8);
-            padding: 10px;
-            border-radius: 10px;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            z-index: 1000;
-        }
-        #locateContainer {
-            position: absolute;
-            top: 10px; right: 10px;
-            z-index: 1001;
-            background: rgba(255, 255, 255, 0.8);
-            padding: 5px 10px;
-            border-radius: 8px;
-            display: flex;
-            align-items: center;
-            gap: 5px;
-            font-size: 14px;
-        }
-        .infoWindow {
-            margin-top: -10px;
-            max-width: 250px;
-        }
-        .infoWindow h3 {
-            font-size: 20px;
-            font-weight: bold;
-            margin: 0 0 8px 0;
-            padding-top: 10px;
-            display: block;
-        }
-        .modal img {
-            max-width: 95%;
-            max-height: 95%;
-            border-radius: 15px;
-        }
-        .image-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 5px;
-            justify-items: center;
-        }
-        .image-grid img {
-            width: 70px;
-            height: 70px;
-            border-radius: 10px;
-            cursor: pointer;
-        }
-    </style>
+    #locateContainer {
+      position: absolute;
+      top: 10px; right: 10px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 16px;
+    }
+
+    #filtersContainer label img {
+      width: 35px;
+      height: auto;
+    }
+
+    .infoWindow {
+      margin-top: -10px;
+      max-width: 250px;
+    }
+
+    .infoWindow h3 {
+      font-size: 20px;
+      font-weight: bold;
+      margin: 0 0 8px 0;
+      padding-top: 10px;
+    }
+
+    .image-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 5px;
+      justify-items: center;
+    }
+
+    .image-grid img {
+      width: 70px;
+      height: 70px;
+      border-radius: 10px;
+      cursor: pointer;
+    }
+
+    /* Avviso per utenti iOS + Chrome */
+    #iosChromeMessage {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100vw;
+      padding: 15px;
+      background: #fffae5;
+      color: #000;
+      font-size: 16px;
+      text-align: center;
+      z-index: 2000;
+    }
+  </style>
 </head>
-
 <body>
+  <div id="iosChromeMessage" style="display: none;">
+    Per un'esperienza ottimale, apri questa guida con Safari e aggiungila alla schermata Home.
+  </div>
 
-    <div id="locateContainer">
-        <input type="checkbox" id="toggleLocate" onchange="toggleLocateUser()">
-        <label for="toggleLocate">📍 Posizione attuale</label>
-    </div>
-    <div id="filtersContainer"></div>
-    <div id="map"></div>
+  <div id="locateContainer">
+    <input type="checkbox" id="toggleLocate" onchange="toggleLocateUser()">
+    <label for="toggleLocate">📍 Posizione attuale</label>
+  </div>
+  <div id="filtersContainer"></div>
+  <div id="map"></div>
 
-    <script>
-        let map, markers = [], iconTypes = new Set();
-        let userMarker = null;
-        let openInfoWindow = null; // Tiene traccia dell'InfoWindow aperta
+  <script>
+    let map, markers = [], iconTypes = new Set();
+    let userMarker = null, openInfoWindow = null;
 
-        function initMap() {
-            map = new google.maps.Map(document.getElementById('map'), {
-                zoom: 5,
-                center: { lat: 37.7749, lng: -122.4194 },
-                gestureHandling: "greedy"
+    // Mostra messaggio se iOS + Chrome
+    const ua = window.navigator.userAgent;
+    const isIOS = /iPad|iPhone|iPod/.test(ua);
+    const isChrome = /CriOS/.test(ua);
+    if (isIOS && isChrome) {
+      document.getElementById("iosChromeMessage").style.display = "block";
+    }
+
+    function initMap() {
+      map = new google.maps.Map(document.getElementById('map'), {
+        zoom: 5,
+        center: { lat: 37.7749, lng: -122.4194 },
+        gestureHandling: "greedy"
+      });
+
+      fetch("https://opensheet.elk.sh/1RvKZh_qd24VGfJ93kH7jAXqP6E93QJXuVCRz6fvGKAg/Foglio1")
+        .then(response => response.json())
+        .then(data => {
+          data.forEach(punto => {
+            const iconSize = getIconSize(map.getZoom());
+            let marker = new google.maps.Marker({
+              position: { lat: Number(punto.Latitudine), lng: Number(punto.Longitudine) },
+              map,
+              title: punto.Nome,
+              icon: {
+                url: punto.Icona,
+                scaledSize: new google.maps.Size(iconSize, iconSize)
+              },
+              iconUrl: punto.Icona,
+              iconType: punto.Icona
             });
 
-            fetch("https://opensheet.elk.sh/1RvKZh_qd24VGfJ93kH7jAXqP6E93QJXuVCRz6fvGKAg/Foglio1")
-                .then(response => response.json())
-                .then(data => {
-                    data.forEach(punto => {
-                        // Debug: verifica il valore della proprietà "Menu"
-                        console.log("Menu per " + punto.Nome + ":", punto.Menu);
+            let images = [punto.Immagine1, punto.Immagine2, punto.Immagine3, punto.Immagine4]
+              .filter(img => img)
+              .map(img => `<img src='${img}' onclick='openImage("${img}")'>`)
+              .join("");
 
-                        const iconSize = getIconSize(map.getZoom());
-                        let marker = new google.maps.Marker({
-                            position: { lat: Number(punto.Latitudine), lng: Number(punto.Longitudine) },
-                            map,
-                            title: punto.Nome,
-                            icon: {
-                                url: punto.Icona,
-                                scaledSize: new google.maps.Size(iconSize, iconSize)
-                            },
-                            iconUrl: punto.Icona,
-                            iconType: punto.Icona
-                        });
+            let menuLink = punto.Menu && punto.Menu.trim()
+              ? `<p><a href="${punto.Menu}" target="_blank">Vedi il menu</a></p>`
+              : '';
 
-                        let images = [punto.Immagine1, punto.Immagine2, punto.Immagine3, punto.Immagine4]
-                            .filter(img => img) 
-                            .map(img => `<img src='${img}' onclick='openImage("${img}")'>`)
-                            .join("");
-
-                        // Usa la proprietà "Menu" per il link
-                        let menuLink = punto.Menu && punto.Menu.trim() 
-                            ? `<p><a href="${punto.Menu}" target="_blank">Vedi il menu</a></p>` 
-                            : '';
-
-                        let infoWindowContent = `
-                            <div class='infoWindow'>
-                                <h3>${punto.Nome}</h3>
-                                <p>${punto.Descrizione}</p>
-                                <p><strong>Valutazione:</strong> ${punto.Valutazione} ⭐</p>
-                                ${images ? `<div class='image-grid'>${images}</div>` : ''}
-                                ${punto.Link ? `<p><a href='${punto.Link}' target='_blank'>Scopri di più</a></p>` : ''}
-                                ${menuLink} <!-- Mostra "Vedi il menu" se il link è presente -->
-                            </div>`;
-
-                        let infoWindow = new google.maps.InfoWindow({
-                            content: infoWindowContent
-                        });
-
-                        marker.addListener("click", () => {
-                            if (openInfoWindow) {
-                                openInfoWindow.close();
-                            }
-                            infoWindow.open(map, marker);
-                            openInfoWindow = infoWindow;
-                        });
-
-                        markers.push(marker);
-                        iconTypes.add(punto.Icona);
-                    });
-                    createFilters();
-                })
-                .catch(error => console.error("Errore nel caricamento:", error));
-
-            map.addListener("zoom_changed", () => {
-                const newSize = getIconSize(map.getZoom());
-                markers.forEach(marker => {
-                    marker.setIcon({
-                        url: marker.iconUrl,
-                        scaledSize: new google.maps.Size(newSize, newSize)
-                    });
-                });
+            let infoWindow = new google.maps.InfoWindow({
+              content: `
+                <div class='infoWindow'>
+                  <h3>${punto.Nome}</h3>
+                  <p>${punto.Descrizione}</p>
+                  <p><strong>Valutazione:</strong> ${punto.Valutazione} ⭐</p>
+                  ${images ? `<div class='image-grid'>${images}</div>` : ''}
+                  ${punto.Link ? `<p><a href='${punto.Link}' target='_blank'>Scopri di più</a></p>` : ''}
+                  ${menuLink}
+                </div>`
             });
-        }
 
-        function getIconSize(zoom) {
-            if (zoom >= 15) return 35;
-            if (zoom >= 12) return 30;
-            if (zoom >= 10) return 25;
-            if (zoom >= 8) return 20;
-            return 15;
-        }
+            marker.addListener("click", () => {
+              if (openInfoWindow) openInfoWindow.close();
+              infoWindow.open(map, marker);
+              openInfoWindow = infoWindow;
+            });
 
-        function toggleLocateUser() {
-            const checked = document.getElementById("toggleLocate").checked;
-            if (checked) {
-                locateUser();
-            } else {
-                if (userMarker) userMarker.setMap(null);
+            markers.push(marker);
+            iconTypes.add(punto.Icona);
+          });
+
+          createFilters();
+        })
+        .catch(error => console.error("Errore caricamento dati:", error));
+
+      map.addListener("zoom_changed", () => {
+        const newSize = getIconSize(map.getZoom());
+        markers.forEach(marker => {
+          marker.setIcon({
+            url: marker.iconUrl,
+            scaledSize: new google.maps.Size(newSize, newSize)
+          });
+        });
+      });
+    }
+
+    function getIconSize(zoom) {
+      if (zoom >= 15) return 35;
+      if (zoom >= 12) return 30;
+      if (zoom >= 10) return 25;
+      if (zoom >= 8) return 20;
+      return 15;
+    }
+
+    function toggleLocateUser() {
+      const checked = document.getElementById("toggleLocate").checked;
+      if (checked) {
+        locateUser();
+      } else {
+        if (userMarker) userMarker.setMap(null);
+      }
+    }
+
+    function locateUser() {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(position => {
+          const userLocation = {
+            lat: position.coords.latitude,
+            lng: position.coords.longitude
+          };
+
+          if (userMarker) userMarker.setMap(null);
+
+          userMarker = new google.maps.Marker({
+            position: userLocation,
+            map: map,
+            title: "La tua posizione",
+            icon: {
+              path: google.maps.SymbolPath.CIRCLE,
+              scale: 8,
+              fillColor: '#4285F4',
+              fillOpacity: 1,
+              strokeColor: 'white',
+              strokeWeight: 2
             }
-        }
+          });
 
-        function locateUser() {
-            if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(position => {
-                    const userLocation = {
-                        lat: position.coords.latitude,
-                        lng: position.coords.longitude
-                    };
+          map.setCenter(userLocation);
+          map.setZoom(14);
+        }, error => {
+          console.warn("Errore geolocalizzazione:", error.message);
+          alert("Non è stato possibile rilevare la posizione.");
+        });
+      } else {
+        alert("Il tuo browser non supporta la geolocalizzazione.");
+      }
+    }
 
-                    if (userMarker) userMarker.setMap(null);
+    function createFilters() {
+      let container = document.getElementById("filtersContainer");
+      container.innerHTML = "";
 
-                    userMarker = new google.maps.Marker({
-                        position: userLocation,
-                        map: map,
-                        title: "La tua posizione",
-                        icon: {
-                            path: google.maps.SymbolPath.CIRCLE,
-                            scale: 8,
-                            fillColor: '#4285F4',
-                            fillOpacity: 1,
-                            strokeColor: 'white',
-                            strokeWeight: 2
-                        }
-                    });
+      iconTypes.forEach(icon => {
+        let label = document.createElement("label");
+        let checkbox = document.createElement("input");
 
-                    map.setCenter(userLocation);
-                    map.setZoom(14);
-                }, error => {
-                    console.warn("Geolocalizzazione fallita:", error);
-                });
-            } else {
-                alert("La geolocalizzazione non è supportata dal tuo browser.");
-            }
-        }
+        checkbox.type = "checkbox";
+        checkbox.classList.add("filter");
+        checkbox.value = icon;
+        checkbox.checked = true;
+        checkbox.addEventListener("change", filterMarkers);
 
-        function createFilters() {
-            let filtersContainer = document.getElementById("filtersContainer");
-            filtersContainer.innerHTML = "";
+        let img = document.createElement("img");
+        img.src = icon;
 
-            iconTypes.forEach(icon => {
-                let label = document.createElement("label");
-                let checkbox = document.createElement("input");
+        label.appendChild(checkbox);
+        label.appendChild(img);
+        container.appendChild(label);
+      });
+    }
 
-                checkbox.type = "checkbox";
-                checkbox.classList.add("filter");
-                checkbox.value = icon;
-                checkbox.checked = true;
-                checkbox.addEventListener("change", filterMarkers);
+    function filterMarkers() {
+      let selected = Array.from(document.querySelectorAll(".filter:checked"))
+        .map(cb => cb.value);
 
-                let img = document.createElement("img");
-                img.src = icon;
-                img.style.width = "25px";
-                img.style.verticalAlign = "middle";
-                img.style.marginLeft = "5px";
+      markers.forEach(marker => {
+        marker.setMap(selected.includes(marker.iconType) ? map : null);
+      });
+    }
 
-                label.appendChild(checkbox);
-                label.appendChild(img);
-                filtersContainer.appendChild(label);
-            });
-        }
-
-        function filterMarkers() {
-            let selectedIcons = Array.from(document.querySelectorAll(".filter:checked"))
-                                     .map(cb => cb.value);
-
-            markers.forEach(marker => {
-                marker.setMap(selectedIcons.includes(marker.iconType) ? map : null);
-            });
-        }
-
-        function openImage(imgSrc) {
-            let modal = document.createElement("div");
-            modal.style.position = "fixed";
-            modal.style.top = "0";
-            modal.style.left = "0";
-            modal.style.width = "100vw";
-            modal.style.height = "100vh";
-            modal.style.background = "rgba(0,0,0,0.8)";
-            modal.style.display = "flex";
-            modal.style.alignItems = "center";
-            modal.style.justifyContent = "center";
-            modal.style.zIndex = "2000";
-            modal.innerHTML = `<img src='${imgSrc}' style='border-radius: 15px;'>`;
-            modal.onclick = () => document.body.removeChild(modal);
-            document.body.appendChild(modal);
-        }
-    </script>
+    function openImage(imgSrc) {
+      let modal = document.createElement("div");
+      modal.style.position = "fixed";
+      modal.style.top = "0";
+      modal.style.left = "0";
+      modal.style.width = "100vw";
+      modal.style.height = "100vh";
+      modal.style.background = "rgba(0,0,0,0.8)";
+      modal.style.display = "flex";
+      modal.style.alignItems = "center";
+      modal.style.justifyContent = "center";
+      modal.style.zIndex = "2000";
+      modal.innerHTML = `<img src='${imgSrc}' style='border-radius: 15px;'>`;
+      modal.onclick = () => document.body.removeChild(modal);
+      document.body.appendChild(modal);
+    }
+  </script>
 </body>
 </html>
